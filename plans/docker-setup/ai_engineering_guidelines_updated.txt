@@ -1,0 +1,396 @@
+
+AI ENGINEERING GUIDELINES
+Standard Project Architecture for All Projects
+Author: Marlon Bernal Standard
+
+====================================================
+PURPOSE
+====================================================
+
+These guidelines define the standard architecture for all projects.
+
+Every new project must follow this structure so that:
+
+• AI agents generate consistent code
+• Projects remain scalable
+• Features stay organized
+• Large systems remain maintainable
+
+This architecture follows:
+
+• Domain Driven Design (DDD)
+• Feature Based Architecture
+• Clean Architecture principles
+• AI‑friendly code organization
+
+====================================================
+CORE ARCHITECTURE PRINCIPLE
+====================================================
+
+Organize code by **business feature (Domain)** instead of by technical layer.
+
+Bad structure (scattered files):
+
+app/
+  Models/
+  Services/
+  Repositories/
+  DTOs/
+  Actions/
+
+Problem:
+Files related to the same feature are spread across many folders.
+
+Correct structure (feature‑based):
+
+app/
+  Domain/
+    Sales/
+    Inventory/
+    Shift/
+    Payroll/
+    Users/
+
+Everything related to a feature lives together.
+
+====================================================
+STANDARD PROJECT STRUCTURE
+====================================================
+
+app/
+  Domain/
+    Sales/
+      Actions/
+      DTOs/
+      Models/
+      Rules/
+      Services/
+
+    Inventory/
+      Actions/
+      DTOs/
+      Models/
+      Services/
+
+    Shift/
+    Payroll/
+    Users/
+
+  Http/
+    Controllers/
+    Requests/
+    Resources/
+
+  Infrastructure/
+    Payments/
+    Sms/
+    Repositories/
+
+====================================================
+DOMAIN MODULE STRUCTURE
+====================================================
+
+Each business feature is organized as a **Domain Module**.
+
+Example:
+
+app/
+  Domain/
+    Sales/
+      Actions/
+      DTOs/
+      Models/
+      Rules/
+      Services/
+
+A Domain Module groups everything related to a feature together.
+
+This prevents business logic from leaking into unrelated areas of the system
+and keeps the architecture easy to navigate.
+
+Each subfolder inside a domain module has a specific responsibility.
+
+----------------------------------------------------
+ACTIONS
+----------------------------------------------------
+
+Actions represent the **use cases of the system**.
+
+Examples:
+
+CreateSaleAction
+CloseShiftAction
+GeneratePayrollAction
+SyncInventoryAction
+
+Although Actions conceptually belong to the Application Layer,
+they are intentionally placed inside the Domain module so the use
+cases stay close to the business feature they operate on.
+
+Responsibilities:
+
+• orchestrate workflows
+• coordinate domain services
+• call repositories when needed
+• manage the use‑case lifecycle
+
+Actions should remain small and focused.
+
+----------------------------------------------------
+DTOS
+----------------------------------------------------
+
+DTOs (Data Transfer Objects) represent structured input/output data.
+
+Examples:
+
+CreateSaleData
+UpdateInventoryData
+
+DTOs help make inputs and outputs explicit and predictable.
+
+----------------------------------------------------
+MODELS
+----------------------------------------------------
+
+Models represent the **core entities of the domain**.
+
+Examples:
+
+Sale
+SaleItem
+Shift
+User
+
+Models represent the state and relationships of business entities.
+
+----------------------------------------------------
+RULES
+----------------------------------------------------
+
+Rules contain **business constraints and policies**.
+
+Examples:
+
+SalePolicy
+ShiftCloseRule
+InventoryLimitRule
+
+Rules enforce what the system is allowed to do.
+
+----------------------------------------------------
+SERVICES
+----------------------------------------------------
+
+Domain Services contain **business calculations and reusable domain logic**.
+
+Examples:
+
+SaleCalculatorService
+PayrollCalculatorService
+InventoryAdjustmentService
+
+Services are used when logic does not naturally belong to a single model.
+
+====================================================
+WHY ACTIONS LIVE INSIDE DOMAIN MODULES
+====================================================
+
+In strict clean architecture the Application Layer is often placed
+in a separate top‑level folder.
+
+However, in this architecture Actions live inside their Domain module.
+
+Example:
+
+Domain/Sales/Actions/CreateSaleAction.php
+
+This is done intentionally to keep use cases close to the feature
+they belong to.
+
+Benefits:
+
+• prevents cross‑domain coupling
+• keeps feature logic grouped together
+• improves project navigation
+• improves AI‑generated code quality
+• makes modules self‑contained
+
+Even though Actions live inside the Domain folder, they still behave as
+Application Layer code.
+
+Meaning:
+
+Actions orchestrate workflows but do not define business rules.
+Business rules remain inside Models, Rules, and Services.
+
+====================================================
+HTTP LAYER
+====================================================
+
+The Http layer handles incoming requests.
+
+app/Http/
+
+Controllers/
+Requests/
+Resources/
+
+Responsibilities:
+
+Controllers
+• receive request
+• call an Action
+• return response
+
+Requests
+• validation
+• authorization
+
+Resources
+• transform models to API responses
+
+Controllers must remain thin.
+
+Example flow:
+
+Controller
+→ Request validation
+→ Domain Action
+→ Resource response
+
+====================================================
+INFRASTRUCTURE LAYER
+====================================================
+
+Infrastructure contains **technical implementations**.
+
+Examples:
+
+• database access
+• external APIs
+• payment gateways
+• SMS integrations
+• queues
+• cache
+• file storage
+
+Example:
+
+Infrastructure/
+
+Payments/
+  GcashGateway.php
+
+Sms/
+  SmsService.php
+
+Repositories/
+  SaleRepository.php
+
+Infrastructure code can depend on frameworks like Laravel.
+
+Domain code must not.
+
+====================================================
+CODING RULES
+====================================================
+
+Controllers
+• must remain thin
+• must not contain business logic
+• must call actions
+
+Actions
+• represent a single use case
+• orchestrate domain services
+• remain focused
+
+Domain Models
+• represent business entities
+• contain domain behavior
+• avoid framework dependencies
+
+Infrastructure
+• handles technical concerns
+• database
+• APIs
+• messaging systems
+
+====================================================
+NAMING CONVENTIONS
+====================================================
+
+Actions
+CreateSaleAction
+
+DTOs
+CreateSaleData
+
+Services
+SaleCalculatorService
+
+Repositories
+SaleRepository
+
+Resources
+SaleResource
+
+Requests
+StoreSaleRequest
+
+====================================================
+AI AGENT COMPATIBILITY RULES
+====================================================
+
+To improve AI generated code:
+
+• keep class responsibilities small
+• follow naming conventions
+• keep domain boundaries clear
+• keep architecture consistent
+
+AI agents must respect the folder structure.
+
+New features must always be created inside:
+
+Domain/<FeatureName>/
+
+Example:
+
+Domain/Inventory/
+Domain/Sales/
+Domain/Payroll/
+
+Never create global service folders that mix features.
+
+====================================================
+ARCHITECTURE FLOW
+====================================================
+
+Controller
+   ↓
+Domain Action
+   ↓
+Domain Service / Rule
+   ↓
+Model
+   ↓
+Repository
+   ↓
+Database
+
+====================================================
+GENERAL BEST PRACTICES
+====================================================
+
+• Prefer dependency injection
+• Avoid static helpers
+• Use queues for long running tasks
+• Log important domain events
+• Write unit tests for actions
+• Write integration tests for workflows
+
+====================================================
+END OF GUIDELINES
+====================================================

@@ -1,0 +1,111 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: main
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_CONNECTION: mariadb
+      LOG_CHANNEL: stderr
+      OCTANE_SERVER: frankenphp
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: bcmath, pdo_mysql, pcntl
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare application key for CI
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Run test suite
+        run: php artisan test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build release image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          docker build \
+            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:${GITHUB_SHA}" \
+            .
+
+      - name: Run production migrations
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_URL: ${{ vars.APP_URL }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          if [ -z "${APP_KEY}" ] || [ -z "${DB_HOST}" ] || [ -z "${DB_DATABASE}" ] || [ -z "${DB_USERNAME}" ] || [ -z "${DB_PASSWORD}" ]; then
+            echo "Skipping migrations because one or more database secrets are missing."
+            exit 0
+          fi
+
+          docker run --rm \
+            -e APP_ENV \
+            -e APP_DEBUG \
+            -e APP_KEY \
+            -e APP_URL \
+            -e LOG_CHANNEL \
+            -e DB_CONNECTION \
+            -e DB_HOST \
+            -e DB_PORT \
+            -e DB_DATABASE \
+            -e DB_USERNAME \
+            -e DB_PASSWORD \
+            -e OCTANE_SERVER \
+            "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            php artisan migrate --force
+
+      - name: Push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:${GITHUB_SHA}"
+
+      - name: Deployment note
+        run: echo "App Runner should be configured to auto-deploy from the ECR main tag."

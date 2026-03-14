@@ -1,0 +1,47 @@
+
+Plan
+
+Dockerized Laravel API Deployment Plan
+Summary
+Build a Laravel 12 API in a single app container
+Use Octane + FrankenPHP as the app runtime
+Use MariaDB locally first, then move to AWS RDS MariaDB
+Keep local and AWS app runtime aligned by using the same app container setup
+Deploy automatically from main with no manual redeploy step
+Key Changes
+Use main as the only deployment branch; do not use master
+On push to main, GitHub Actions runs checks, builds the image, pushes it to AWS ECR, and App Runner auto-deploys the new image
+Store runtime config in environment variables and secrets in AWS; do not hardcode local-only settings
+Run local development with Docker Compose using:
+one Laravel app container
+one local MariaDB container
+Keep database outside the app container in all environments
+Do not include Redis in v1 unless the app actually needs cache, queues, or sessions backed by Redis
+Standardize the app container on:
+Laravel 12
+Octane + FrankenPHP
+required PHP extensions for Laravel and MariaDB
+writable storage and bootstrap/cache
+non-root runtime user
+logs to stdout/stderr
+AWS-provided PORT
+health check endpoint at /up
+Use the same app Dockerfile for local and AWS runtime behavior; environment-specific differences should be limited to env vars, secrets, and infrastructure wiring
+CI deployment includes database migrations against the target database
+Test Plan
+Local app container starts successfully with Docker Compose
+Laravel API responds on the configured port
+Health check endpoint /up returns success
+App connects to local MariaDB through environment variables
+Production image builds successfully in CI
+CI pushes image to ECR successfully
+App Runner deploys automatically after new image push
+Deployment-time migrations run successfully
+Same image works locally and in AWS with only environment/config changes
+Assumptions
+Git hosting is GitHub
+AWS hosting target is App Runner
+Image registry is ECR
+Database engine is MariaDB both locally and later in RDS
+Redis is out of scope for initial setup
+Schema changes should be written to be safe for CI-driven deployment migrations
