@@ -9,56 +9,89 @@ Back to the entry point: [guidelines/README.md](../README.md)
 
 ## Feature Purpose
 
-Authentication covers access to API behavior that requires a verified user context and any surrounding identity or authorization wiring needed to protect endpoints.
+Authentication covers the portable Users Auth implementation reused across POS APIs. It owns shared user registration, login, logout, current-user retrieval, Sanctum token issuance, and the shared users-database boundary that keeps auth separate from each API's business database.
 
 ## Owned Domain Area
 
-- Authenticated API access
-- User identity boundaries
+- Shared user registration and login
+- API token issuance and revocation
+- Authenticated API access and current-user retrieval
+- Shared users database connection boundary
 - Middleware-protected route access
 
-If authentication logic grows beyond route-level framework wiring, introduce domain-oriented actions and services under `app/Domain/Authentication/`.
+Authentication logic belongs under `app/Domain/Authentication/` and supporting HTTP or infrastructure layers instead of route closures.
 
 ## Current Implementation Touchpoints
 
 - `routes/api.php`
+- `/api/auth/register`
+- `/api/auth/login`
+- `/api/auth/me`
+- `/api/auth/logout`
 - `/api/user`
-- `auth:sanctum` middleware
+- `app/Domain/Authentication/`
+- `app/Http/Controllers/Api/Authentication/`
+- `app/Http/Requests/Authentication/`
+- `app/Http/Resources/Authentication/`
+- `app/Infrastructure/Authentication/`
+- `app/Models/User.php`
+- `config/authentication.php`
+- `config/database.php`
+- `database/migrations/0001_01_01_000000_create_users_table.php`
+- `database/migrations/2026_03_14_210346_create_personal_access_tokens_table.php`
 - `composer.json` dependency on `laravel/sanctum`
+- `tests/Feature/Integration/Authentication/`
+- `tests/Feature/E2E/Authentication/`
+- `tests/Unit/Authentication/`
 
 ## Main Flows and Use Cases
 
-- Return the authenticated user for protected API requests.
+- Register a shared-auth user and issue a Sanctum access token.
+- Verify shared-auth user credentials and issue a Sanctum access token.
+- Return the authenticated user for protected token-authenticated requests.
+- Revoke the current access token on logout.
 - Reject unauthenticated access to protected endpoints.
-- Provide the foundation for future login, token, and session-related flows.
+- Preserve `/api/user` as a protected alias for current-user retrieval.
 
 ## Related Models, Actions, and Services
 
 Current state:
 
 - `app/Models/User.php`
-- No dedicated authentication actions or services yet.
+- `app/Infrastructure/Authentication/Models/PersonalAccessToken.php`
+- `app/Domain/Authentication/Actions/RegisterUserAction.php`
+- `app/Domain/Authentication/Actions/LoginUserAction.php`
+- `app/Domain/Authentication/Actions/LogoutCurrentUserAction.php`
+- `app/Domain/Authentication/DTOs/RegisterUserData.php`
+- `app/Domain/Authentication/DTOs/LoginUserData.php`
+- `app/Domain/Authentication/DTOs/IssuedApiTokenData.php`
+- `app/Domain/Authentication/Services/IssueUserApiTokenService.php`
 
-Future direction:
+## Portable Reuse Rules
 
-- Add explicit authentication actions, DTOs, and services when auth behavior becomes more than default framework wiring.
+- Every POS API should reuse the same Users Auth implementation or extracted internal package instead of re-creating auth logic per API.
+- Each POS API may keep its own business database, but user identity and auth-token data belong to the shared users database.
+- Configure the shared users database through `AUTH_USERS_DB_CONNECTION` and the `users` connection in `config/database.php`.
+- If the shared users connection is not configured, auth models fall back to the application's default database connection.
+- This repo currently implements token-based API auth for portable reuse. Web-specific SPA cookie auth can be layered later without splitting the underlying user identity domain.
 
 ## Dependencies
 
 - Laravel Sanctum
 - Laravel authentication middleware
-- User model and future auth token or session infrastructure
+- Shared users database configuration
+- User model and Sanctum token infrastructure
 
 ## Testing Expectations
 
-- Integration tests must verify both authenticated success and unauthenticated failure cases.
-- End-to-end tests should cover any complete sign-in or token flow once implemented.
-- Unit tests are required for extracted authentication rules, token policies, or supporting services.
+- Integration tests must verify register, login, current-user, logout, and unauthenticated failure behavior.
+- End-to-end tests should cover the complete register or login through logout token flow.
+- Unit tests are required for extracted authentication rules, token policies, or supporting services such as connection resolution.
 - Bug fixes in auth must always include regression tests because auth failures are high-impact.
 
 ## Update Requirement
 
-Update this guideline whenever protected routes, authentication flow, middleware behavior, identity contracts, or auth dependencies change.
+Update this guideline whenever auth endpoints, authentication flow, middleware behavior, shared users connection behavior, identity contracts, or auth dependencies change.
 
 ## Shared Guidelines To Read With This File
 

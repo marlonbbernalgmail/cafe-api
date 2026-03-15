@@ -6,6 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    public function getConnection(): ?string
+    {
+        return config('authentication.users_connection');
+    }
+
     /**
      * Run the migrations.
      */

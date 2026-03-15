@@ -36,7 +36,7 @@ Do not start implementation from repo-wide guesswork when a feature guideline al
 | --- | --- | --- |
 | Operational Health | [guidelines/features/operational-health.md](./features/operational-health.md) | `routes/web.php`, `tests/Feature/HealthCheckTest.php` |
 | API Foundation | [guidelines/features/api-foundation.md](./features/api-foundation.md) | `routes/api.php`, `tests/Feature/ApiPingTest.php` |
-| Authentication | [guidelines/features/authentication.md](./features/authentication.md) | `routes/api.php`, `laravel/sanctum` |
+| Authentication | [guidelines/features/authentication.md](./features/authentication.md) | `routes/api.php`, `app/Domain/Authentication`, `app/Infrastructure/Authentication`, `laravel/sanctum` |
 
 If a task touches code that does not fit any feature above, create a new feature guideline and add it to this index as part of the same change.
 
