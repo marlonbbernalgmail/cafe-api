@@ -32,7 +32,8 @@ docker compose up --build
 docker compose exec app php artisan migrate --force
 ```
 
-The API will be available at `http://localhost:8000`.
+The API will be available at `http://localhost:8001`.
+On your local network, use `http://<your-lan-ip>:8001`.
 
 ## Useful endpoints
 
@@ -76,3 +77,4 @@ Repository secrets:
 - Store runtime secrets in App Runner or another AWS secrets source.
 - Use RDS MariaDB once you move past local development.
 - If your RDS instance is private, GitHub-hosted runners will not be able to run migrations against it without additional network access.
+- For a full production setup and change-management checklist, see [docs/aws-app-runner-setup.md](/c:/apis/cafe-api/docs/aws-app-runner-setup.md).

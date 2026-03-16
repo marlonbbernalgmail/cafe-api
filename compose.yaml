@@ -11,7 +11,7 @@ services:
       APP_ENV: ${APP_ENV:-local}
       APP_KEY: ${APP_KEY:-}
       APP_DEBUG: ${APP_DEBUG:-true}
-      APP_URL: ${APP_URL:-http://localhost:8000}
+      APP_URL: ${APP_URL:-http://localhost:8001}
       LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       DB_CONNECTION: ${DB_CONNECTION:-mariadb}
@@ -25,10 +25,10 @@ services:
       SESSION_DRIVER: ${SESSION_DRIVER:-file}
       OCTANE_SERVER: ${OCTANE_SERVER:-frankenphp}
       OCTANE_HOST: ${OCTANE_HOST:-0.0.0.0}
-      OCTANE_PORT: ${OCTANE_PORT:-8000}
-      PORT: ${APP_PORT:-8000}
+      OCTANE_PORT: ${OCTANE_PORT:-8001}
+      PORT: ${APP_PORT:-8001}
     ports:
-      - "${APP_PORT:-8000}:8000"
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-8001}:${APP_PORT:-8001}"
     volumes:
       - .:/app
       - vendor:/app/vendor

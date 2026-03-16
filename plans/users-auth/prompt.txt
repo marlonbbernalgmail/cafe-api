@@ -1,0 +1,6 @@
+- i want you to audit the full implementation of user auth features
+- api should have v1\ in its endpoint
+- users database should use 127.0.0.1 port 3306 instead of 3307
+- there should have full implementation of end to end from register, login, logout, user is logged in.
+- it should be ready to integrate to mobile apps with successful register, login and persistent login
+- audit report should be put on audit.txt 

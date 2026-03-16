@@ -1,0 +1,229 @@
+AUTHENTICATION FEATURE AUDIT REPORT
+====================================
+Date: 2026-03-15
+Project: cafe-api
+Scope: User authentication — register, login, logout, authenticated user
+
+================================================================================
+SUMMARY
+================================================================================
+
+PASS  Full auth flow implementation (register / login / logout / me)
+PASS  Mobile app integration readiness (token-based, persistent login)
+FAIL  API versioning — missing v1 prefix on all routes
+FAIL  Database host — .env.example uses Docker hostname "db", not 127.0.0.1
+PASS  Database port — correctly set to 3306 (not 3307)
+
+================================================================================
+ISSUE #1 — CRITICAL: Missing /v1/ prefix on all API routes
+================================================================================
+
+File: routes/api.php
+
+Current endpoints:
+  POST   /api/auth/register
+  POST   /api/auth/login
+  GET    /api/auth/me       (auth required)
+  POST   /api/auth/logout   (auth required)
+  GET    /api/user          (auth required, duplicate of /me)
+  GET    /api/ping
+
+Expected endpoints:
+  POST   /api/v1/auth/register
+  POST   /api/v1/auth/login
+  GET    /api/v1/auth/me
+  POST   /api/v1/auth/logout
+  GET    /api/v1/ping
+
+Fix: Wrap all routes in a Route::prefix('v1')->group(...) block.
+
+Example:
+  Route::prefix('v1')->group(function () {
+      Route::get('/ping', ...);
+      Route::prefix('auth')->group(function () { ... });
+  });
+
+================================================================================
+ISSUE #2 — IMPORTANT: Database host set to Docker service name, not 127.0.0.1
+================================================================================
+
+File: .env.example (lines 28-40)
+
+Current:
+  DB_HOST=db
+  USERS_DB_HOST=db
+
+Expected:
+  DB_HOST=127.0.0.1
+  USERS_DB_HOST=127.0.0.1
+
+The DB_PORT and USERS_DB_PORT are correctly set to 3306.
+
+Note: config/database.php fallback defaults already use 127.0.0.1, which is
+correct. Only the .env.example values need updating.
+
+================================================================================
+ISSUE #3 — MINOR: Duplicate /api/user route
+================================================================================
+
+File: routes/api.php (line 24)
+
+  Route::middleware('auth:sanctum')->get('/user', GetAuthenticatedUserController::class);
+
+This duplicates GET /api/auth/me. Once v1 prefix is added, having two paths
+for the same resource (/v1/auth/me and /v1/user) is inconsistent. Recommend
+removing this alias and standardizing on /v1/auth/me.
+
+================================================================================
+AUTH FLOW REVIEW — REGISTER
+================================================================================
+
+Endpoint: POST /api/auth/register
+Controller: RegisterUserController
+Request: RegisterUserRequest
+Domain: RegisterUserAction -> IssueUserApiTokenService
+
+Validation:
+  - name:           required, string, max:255               PASS
+  - email:          required, string, email, max:255, unique PASS
+  - password:       required, confirmed, Password::defaults  PASS
+  - device_name:    nullable, string, min:1, max:255         PASS
+
+Response (HTTP 201):
+  {
+    "token_type": "Bearer",
+    "access_token": "<sanctum-token>",
+    "user": { id, name, email, created_at, updated_at }
+  }
+
+Mobile readiness:
+  - Returns access_token on registration              PASS
+  - Returns user payload for immediate UI population  PASS
+  - Supports device_name for token labeling           PASS
+  - Password confirmation (password_confirmation)     PASS
+
+================================================================================
+AUTH FLOW REVIEW — LOGIN
+================================================================================
+
+Endpoint: POST /api/auth/login
+Controller: LoginUserController
+Request: LoginUserRequest
+Domain: LoginUserAction -> IssueUserApiTokenService
+
+Validation:
+  - email:       required, string, email  PASS
+  - password:    required, string         PASS
+  - device_name: nullable, string         PASS
+
+Credential check:
+  Hash::check($data->password, $user->password)       PASS
+
+Failure handling:
+  Throws ValidationException on wrong credentials     PASS
+  Does not reveal whether email exists                 PASS
+
+Response (HTTP 200):
+  {
+    "token_type": "Bearer",
+    "access_token": "<sanctum-token>",
+    "user": { id, name, email, created_at, updated_at }
+  }
+
+Mobile readiness:
+  - Returns fresh token on each login                 PASS
+  - Supports multiple devices via device_name         PASS
+  - Tokens persist until explicitly revoked           PASS (persistent login)
+
+================================================================================
+AUTH FLOW REVIEW — AUTHENTICATED USER (ME)
+================================================================================
+
+Endpoint: GET /api/auth/me
+Controller: GetAuthenticatedUserController
+Middleware: auth:sanctum
+
+Response (HTTP 200):
+  {
+    "user": { id, name, email, created_at, updated_at }
+  }
+
+  - Returns 401 when unauthenticated                  PASS
+  - Uses Sanctum token from Authorization header      PASS
+  - Suitable for "is user logged in?" check in apps   PASS
+
+================================================================================
+AUTH FLOW REVIEW — LOGOUT
+================================================================================
+
+Endpoint: POST /api/auth/logout
+Controller: LogoutUserController
+Domain: LogoutCurrentUserAction
+Middleware: auth:sanctum
+
+Behavior:
+  Deletes current token only (not all user tokens)    PASS
+  Returns HTTP 204 No Content                         PASS
+
+Mobile readiness:
+  - Per-device logout (only current token revoked)    PASS
+  - Token immediately invalidated server-side         PASS
+
+================================================================================
+INFRASTRUCTURE REVIEW
+================================================================================
+
+Token model:
+  Custom PersonalAccessToken uses users DB connection  PASS
+  Registered in AppServiceProvider                     PASS
+
+User model:
+  HasApiTokens trait (Sanctum)                         PASS
+  UsesUsersConnection trait for DB isolation           PASS
+  Password auto-hashed via model cast                  PASS
+  Sensitive fields hidden (password, remember_token)   PASS
+
+Database isolation:
+  Users + tokens stored in separate "users" connection PASS
+  Supports portable reuse across multiple APIs         PASS
+
+Migrations:
+  users table on users connection                      PASS
+  personal_access_tokens table on users connection     PASS
+
+================================================================================
+TEST COVERAGE REVIEW
+================================================================================
+
+Unit tests (tests/Unit/Authentication/):
+  Connection resolution with/without users DB config   PASS
+
+Integration tests (tests/Feature/Integration/):
+  Register — token issued, password hashed             PASS
+  Login — valid credentials pass, wrong credentials fail PASS
+  Get authenticated user                               PASS
+  Logout — token revoked                               PASS
+  Whitespace-only device_name handling                 PASS
+
+E2E tests (tests/Feature/E2E/):
+  Full flow: register -> me -> logout -> me (401)      PASS
+
+Test coverage is comprehensive and covers all critical auth paths.
+
+================================================================================
+ACTION ITEMS (PRIORITY ORDER)
+================================================================================
+
+[CRITICAL] 1. Add v1 prefix to all routes in routes/api.php
+               Wrap existing route groups in Route::prefix('v1')->group(...)
+
+[IMPORTANT] 2. Update .env.example to use 127.0.0.1 for DB_HOST and USERS_DB_HOST
+               Change: DB_HOST=db      -> DB_HOST=127.0.0.1
+               Change: USERS_DB_HOST=db -> USERS_DB_HOST=127.0.0.1
+
+[MINOR]     3. Remove duplicate /api/user route
+               Standardize on /v1/auth/me
+
+================================================================================
+END OF AUDIT
+================================================================================
