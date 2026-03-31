@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Authentication\GetAuthenticatedUserController;
 use App\Http\Controllers\Api\Authentication\LoginUserController;
 use App\Http\Controllers\Api\Authentication\LogoutUserController;
+use App\Http\Controllers\Api\Authentication\RecordPresenceController;
 use App\Http\Controllers\Api\Authentication\RegisterUserController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', GetAuthenticatedUserController::class);
         Route::post('/logout', LogoutUserController::class);
+        Route::post('/presence', RecordPresenceController::class);
     });
 });
 
