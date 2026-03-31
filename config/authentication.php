@@ -12,4 +12,5 @@
 
 return [
     'users_connection' => env('AUTH_USERS_DB_CONNECTION'),
+    'presence_timeout_seconds' => (int) env('AUTH_PRESENCE_TIMEOUT_SECONDS', 300),
 ];
