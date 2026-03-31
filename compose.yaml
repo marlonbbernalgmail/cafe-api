@@ -52,6 +52,13 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app
+
 volumes:
   mariadb_data:
   vendor:
